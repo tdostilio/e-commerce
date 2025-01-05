@@ -8,5 +8,3 @@ import { ProductsService } from './products.service';
   providers: [ProductsService], // Services used in this module
 })
 export class ProductsModule {}
-
-//

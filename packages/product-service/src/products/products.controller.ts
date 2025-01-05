@@ -12,6 +12,10 @@ import {
 import { ApiTags, ApiOperation, ApiResponse } from '@nestjs/swagger';
 import { ProductsService } from './products.service';
 import { CreateProductDto } from './dto/create-product.dto';
+import {
+  DuplicateSkuError,
+  ProductNotFoundError,
+} from './errors/product.errors';
 
 // @Controller('products') creates routes starting with /products
 @ApiTags('products')
@@ -22,7 +26,8 @@ export class ProductsController {
 
   // @Get() creates a GET /products endpoint
   @Get()
-  findAll() {
+  @ApiOperation({ summary: 'Get all products' })
+  async findAll() {
     return this.productsService.findAll();
   }
 
@@ -33,11 +38,14 @@ export class ProductsController {
   @ApiResponse({ status: 200, description: 'Return the product.' })
   @ApiResponse({ status: 404, description: 'Product not found.' })
   async findOne(@Param('id') id: string) {
-    const product = await this.productsService.findOne(id);
-    if (!product) {
-      throw new NotFoundException('Product not found');
+    try {
+      return await this.productsService.findOne(id);
+    } catch (error) {
+      if (error instanceof ProductNotFoundError) {
+        throw new NotFoundException(`Product with ID ${id} not found`);
+      }
+      throw error;
     }
-    return product;
   }
 
   // @Post() creates a POST /products endpoint
@@ -53,8 +61,8 @@ export class ProductsController {
     try {
       return await this.productsService.create(createProductDto);
     } catch (error) {
-      if (error.code === 'P2002') {
-        throw new BadRequestException('SKU must be unique');
+      if (error instanceof DuplicateSkuError) {
+        throw new BadRequestException('A product with this SKU already exists');
       }
       throw error;
     }
@@ -62,16 +70,42 @@ export class ProductsController {
 
   // @Put(':id') creates a PUT /products/:id endpoint
   @Put(':id')
-  update(
+  @ApiOperation({ summary: 'Update a product' })
+  @ApiResponse({
+    status: 200,
+    description: 'The product has been updated successfully.',
+  })
+  @ApiResponse({ status: 404, description: 'Product not found.' })
+  async update(
     @Param('id') id: string,
-    @Body() updateProductDto: Partial<CreateProductDto>,
+    @Body() updateData: Partial<CreateProductDto>,
   ) {
-    return this.productsService.update(id, updateProductDto);
+    try {
+      return await this.productsService.update(id, updateData);
+    } catch (error) {
+      if (error instanceof ProductNotFoundError) {
+        throw new NotFoundException(`Product with ID ${id} not found`);
+      }
+      throw error;
+    }
   }
 
   // @Delete(':id') creates a DELETE /products/:id endpoint
   @Delete(':id')
-  remove(@Param('id') id: string) {
-    return this.productsService.remove(id);
+  @ApiOperation({ summary: 'Delete a product' })
+  @ApiResponse({
+    status: 200,
+    description: 'The product has been deleted successfully.',
+  })
+  @ApiResponse({ status: 404, description: 'Product not found.' })
+  async remove(@Param('id') id: string) {
+    try {
+      return await this.productsService.remove(id);
+    } catch (error) {
+      if (error instanceof ProductNotFoundError) {
+        throw new NotFoundException(`Product with ID ${id} not found`);
+      }
+      throw error;
+    }
   }
 }
