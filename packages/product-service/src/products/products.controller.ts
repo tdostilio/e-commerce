@@ -6,6 +6,8 @@ import {
   Param,
   Put,
   Delete,
+  NotFoundException,
+  BadRequestException,
 } from '@nestjs/common';
 import { ProductsService } from './products.service';
 import { CreateProductDto } from './dto/create-product.dto';
@@ -25,15 +27,26 @@ export class ProductsController {
   // @Get(':id') creates a GET /products/:id endpoint
   // @Param('id') extracts the id from the URL
   @Get(':id')
-  findOne(@Param('id') id: string) {
-    return this.productsService.findOne(id);
+  async findOne(@Param('id') id: string) {
+    const product = await this.productsService.findOne(id);
+    if (!product) {
+      throw new NotFoundException('Product not found');
+    }
+    return product;
   }
 
   // @Post() creates a POST /products endpoint
   // @Body() extracts the request body and validates it against CreateProductDto
   @Post()
-  create(@Body() createProductDto: CreateProductDto) {
-    return this.productsService.create(createProductDto);
+  async create(@Body() createProductDto: CreateProductDto) {
+    try {
+      return await this.productsService.create(createProductDto);
+    } catch (error) {
+      if (error.code === 'P2002') {
+        throw new BadRequestException('SKU must be unique');
+      }
+      throw error;
+    }
   }
 
   // @Put(':id') creates a PUT /products/:id endpoint
