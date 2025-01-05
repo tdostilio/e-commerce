@@ -9,10 +9,12 @@ import {
   NotFoundException,
   BadRequestException,
 } from '@nestjs/common';
+import { ApiTags, ApiOperation, ApiResponse } from '@nestjs/swagger';
 import { ProductsService } from './products.service';
 import { CreateProductDto } from './dto/create-product.dto';
 
 // @Controller('products') creates routes starting with /products
+@ApiTags('products')
 @Controller('products')
 export class ProductsController {
   // ProductsService is automatically injected
@@ -27,6 +29,9 @@ export class ProductsController {
   // @Get(':id') creates a GET /products/:id endpoint
   // @Param('id') extracts the id from the URL
   @Get(':id')
+  @ApiOperation({ summary: 'Get a product by id' })
+  @ApiResponse({ status: 200, description: 'Return the product.' })
+  @ApiResponse({ status: 404, description: 'Product not found.' })
   async findOne(@Param('id') id: string) {
     const product = await this.productsService.findOne(id);
     if (!product) {
@@ -38,6 +43,12 @@ export class ProductsController {
   // @Post() creates a POST /products endpoint
   // @Body() extracts the request body and validates it against CreateProductDto
   @Post()
+  @ApiOperation({ summary: 'Create a new product' })
+  @ApiResponse({
+    status: 201,
+    description: 'The product has been created successfully.',
+  })
+  @ApiResponse({ status: 400, description: 'Bad Request.' })
   async create(@Body() createProductDto: CreateProductDto) {
     try {
       return await this.productsService.create(createProductDto);
