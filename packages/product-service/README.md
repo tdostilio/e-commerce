@@ -69,6 +69,8 @@ The service runs on `http://localhost:3000` with the following endpoints:
 - `PUT /api/products/:id` - Update a product
 - `DELETE /api/products/:id` - Delete a product
 
+Documentation is available at `http://localhost:3000/api/docs`
+
 ## Example Request
 
 Create a product
