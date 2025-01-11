@@ -1,10 +1,5 @@
 import { Controller, Logger } from '@nestjs/common';
-import {
-  MessagePattern,
-  Payload,
-  Ctx,
-  RmqContext,
-} from '@nestjs/microservices';
+import { MessagePattern, Payload } from '@nestjs/microservices';
 import { ProductsService } from '../products/products.service';
 
 @Controller()
@@ -14,13 +9,7 @@ export class InventoryController {
   constructor(private readonly productsService: ProductsService) {}
 
   @MessagePattern('inventory.check_availability')
-  async checkAvailability(
-    @Payload() data: { sku: string; quantity: number },
-    @Ctx() context: RmqContext,
-  ) {
-    const channel = context.getChannelRef();
-    const message = context.getMessage();
-
+  async checkAvailability(@Payload() data: { sku: string; quantity: number }) {
     this.logger.debug('Received inventory check request');
     this.logger.debug(`Payload: ${JSON.stringify(data)}`);
 
@@ -37,11 +26,9 @@ export class InventoryController {
       };
 
       this.logger.debug(`Sending response: ${JSON.stringify(response)}`);
-      channel.ack(message);
       return response;
     } catch (error) {
       this.logger.error('Failed to process request:', error);
-      channel.nack(message, false, true);
       throw error;
     }
   }
@@ -54,11 +41,7 @@ export class InventoryController {
       sku: string;
       quantity: number;
     },
-    @Ctx() context: RmqContext,
   ) {
-    const channel = context.getChannelRef();
-    const message = context.getMessage();
-
     this.logger.debug('Received order created event');
     this.logger.debug(`Payload: ${JSON.stringify(data)}`);
 
@@ -69,10 +52,8 @@ export class InventoryController {
         data.quantity,
       );
       this.logger.debug('Successfully processed order created event');
-      channel.ack(message);
     } catch (error) {
       this.logger.error('Failed to process order created event:', error);
-      channel.nack(message, false, true);
       throw error;
     }
   }

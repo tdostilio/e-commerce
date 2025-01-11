@@ -9,15 +9,9 @@ export const rabbitmqConfig = (): RmqOptions => {
     options: {
       urls: [process.env.RABBITMQ_URL || 'amqp://localhost:5672'],
       queue: 'inventory_queue',
-      queueOptions: {
-        durable: true,
-      },
       socketOptions: {
         heartbeat: 60,
       },
-      prefetchCount: 1,
-      noAck: false,
-      persistent: true,
     },
   };
 
