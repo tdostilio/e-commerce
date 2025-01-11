@@ -8,7 +8,9 @@ import {
   Delete,
   NotFoundException,
   BadRequestException,
+  Logger,
 } from '@nestjs/common';
+import { Ctx, RmqContext } from '@nestjs/microservices';
 import { ApiTags, ApiOperation, ApiResponse } from '@nestjs/swagger';
 import { ProductsService } from './products.service';
 import { CreateProductDto } from './dto/create-product.dto';
@@ -16,11 +18,14 @@ import {
   DuplicateSkuError,
   ProductNotFoundError,
 } from './errors/product.errors';
+import { MessagePattern, Payload } from '@nestjs/microservices';
 
 // @Controller('products') creates routes starting with /products
 @ApiTags('products')
 @Controller('products')
 export class ProductsController {
+  private readonly logger = new Logger(ProductsController.name);
+
   // ProductsService is automatically injected
   constructor(private readonly productsService: ProductsService) {}
 
@@ -105,6 +110,63 @@ export class ProductsController {
       if (error instanceof ProductNotFoundError) {
         throw new NotFoundException(`Product with ID ${id} not found`);
       }
+      throw error;
+    }
+  }
+
+  @MessagePattern('product.check_availability')
+  async checkAvailability(
+    @Payload() data: { sku: string; quantity: number },
+    @Ctx() context: RmqContext,
+  ) {
+    const channel = context.getChannelRef();
+    const message = context.getMessage();
+
+    this.logger.debug('Received RPC call for product availability check');
+    this.logger.debug(`Payload: ${JSON.stringify(data)}`);
+
+    try {
+      const result = await this.productsService.checkAvailability(
+        data.sku,
+        data.quantity,
+      );
+
+      // Acknowledge the message
+      channel.ack(message);
+
+      this.logger.debug(`Sending RPC response: ${JSON.stringify(result)}`);
+      // Return the result - NestJS will handle sending it back through RabbitMQ
+      return {
+        skuExists: true,
+        hasAvailableStock: result.hasAvailableStock,
+        availableQuantity: result.availableQuantity,
+      };
+    } catch (error) {
+      this.logger.error('Failed to process RPC call:', error);
+      channel.nack(message, false, true);
+      throw error;
+    }
+  }
+
+  @MessagePattern('order.created')
+  async handleOrderCreated(
+    @Payload()
+    data: {
+      orderId: string;
+      sku: string;
+      quantity: number;
+    },
+  ) {
+    this.logger.debug('Received order created event:', data);
+    try {
+      await this.productsService.reserveStock(
+        data.orderId,
+        data.sku,
+        data.quantity,
+      );
+      this.logger.debug('Successfully processed order created event');
+    } catch (error) {
+      this.logger.error('Error processing order created event:', error);
       throw error;
     }
   }

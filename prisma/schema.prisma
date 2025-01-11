@@ -14,6 +14,37 @@ model Product {
   price       Float
   sku         String   @unique
   stock       Int
+  reserved    Int      @default(0)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
+}
+
+model OutboxMessage {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  eventType String
+  payload   Json
+  status    String   @default("pending") // pending, processed, failed
+  createdAt DateTime @default(now())
+  processedAt DateTime?
+}
+
+model StockReservation {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  orderId   String
+  sku       String
+  quantity  Int
+  status    String   // RESERVED, CONFIRMED, CANCELLED
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([orderId])
+  @@index([sku])
+}
+
+model Inventory {
+  id               String   @id @default(auto()) @map("_id") @db.ObjectId
+  sku              String   @unique
+  available        Int      @default(0)
+  reserved         Int      @default(0)
+  // ... other fields
 } 

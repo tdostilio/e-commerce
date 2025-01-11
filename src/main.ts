@@ -1,30 +1,57 @@
 import { NestFactory } from '@nestjs/core';
-import { ValidationPipe } from '@nestjs/common';
-import { SwaggerModule, DocumentBuilder } from '@nestjs/swagger';
 import { AppModule } from './app.module';
+import { Logger, ValidationPipe } from '@nestjs/common';
+import { setupSwagger } from './config/swagger.config';
+import { rabbitmqConfig } from './config/rabbitmq.config';
+import { RmqOptions } from '@nestjs/microservices';
 
 async function bootstrap() {
-  const app = await NestFactory.create(AppModule);
-  app.setGlobalPrefix('api');
+  // Create a logger instance for startup logs
+  const logger = new Logger('Bootstrap');
 
-  app.useGlobalPipes(
-    new ValidationPipe({
-      whitelist: true, // Strip non-whitelisted properties
-      forbidNonWhitelisted: true, // Throw error if non-whitelisted properties
-    }),
-  );
+  try {
+    // Create the NestJS application instance
+    const app = await NestFactory.create(AppModule);
 
-  // Swagger setup
-  const config = new DocumentBuilder()
-    .setTitle('Products API') // Title of the API
-    .setDescription('The products API description') // Description of the API
-    .setVersion('1.0') // Version of the API
-    .addTag('products') // Tag for the API
-    .build(); // Build the configuration
+    // Set default port with fallback to 3000
+    const port = parseInt(process.env.PORT || '3000', 10);
 
-  const document = SwaggerModule.createDocument(app, config);
-  SwaggerModule.setup('api/docs', app, document); // Serves Swagger UI at /api/docs
+    // Enable validation pipes globally
+    app.useGlobalPipes(new ValidationPipe());
 
-  await app.listen(process.env.PORT ?? 3000);
+    // Initialize Swagger documentation
+    setupSwagger(app);
+
+    // Connect to RabbitMQ
+    const rmqConfig = rabbitmqConfig();
+    logger.debug(
+      `Connecting to RabbitMQ with config: ${JSON.stringify(rmqConfig)}`,
+    );
+
+    const microservice = app.connectMicroservice<RmqOptions>(rmqConfig);
+    await microservice.listen();
+
+    logger.log(
+      `🐰 RabbitMQ consumer connected and listening on queue: product_queue`,
+    );
+
+    // Start both HTTP and microservice servers
+    await app.startAllMicroservices();
+    await app.listen(port);
+
+    // Log successful startup
+    logger.log(`🚀 HTTP Server running on port ${port}`);
+    logger.log(
+      `📚 Swagger documentation available at http://localhost:${port}/api`,
+    );
+    logger.log(`🐰 RabbitMQ consumer connected to ${process.env.RABBITMQ_URL}`);
+  } catch (error) {
+    logger.error('Failed to start application:', error);
+    if (error.message.includes('ECONNREFUSED')) {
+      logger.error('❌ Failed to connect to RabbitMQ. Is it running?');
+    }
+    process.exit(1);
+  }
 }
+
 bootstrap();

@@ -1,4 +1,4 @@
-import { Injectable } from '@nestjs/common';
+import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { CreateProductDto } from './dto/create-product.dto';
 import {
@@ -6,9 +6,17 @@ import {
   ProductNotFoundError,
 } from './errors/product.errors';
 
+export interface StockCheckResponse {
+  skuExists: boolean;
+  hasAvailableStock: boolean;
+  availableQuantity: number;
+}
+
 // @Injectable() marks this as a service that can be injected into other classes
 @Injectable()
 export class ProductsService {
+  private readonly logger = new Logger(ProductsService.name);
+
   // Prisma is automatically injected by NestJS's dependency injection
   constructor(private prisma: PrismaService) {}
 
@@ -72,5 +80,74 @@ export class ProductsService {
       }
       throw error;
     }
+  }
+
+  async checkAvailability(
+    sku: string,
+    quantity: number,
+  ): Promise<StockCheckResponse> {
+    const product = await this.prisma.product.findUnique({
+      where: { sku },
+      select: { stock: true, reserved: true },
+    });
+
+    if (!product) {
+      return {
+        skuExists: false,
+        hasAvailableStock: false,
+        availableQuantity: 0,
+      };
+    }
+
+    const availableQuantity = product.stock - product.reserved;
+    return {
+      skuExists: true,
+      hasAvailableStock: availableQuantity >= quantity,
+      availableQuantity,
+    };
+  }
+
+  async reserveStock(
+    orderId: string,
+    sku: string,
+    quantity: number,
+  ): Promise<void> {
+    return this.prisma.$transaction(async (tx) => {
+      const product = await tx.product.findUnique({
+        where: { sku },
+        select: { stock: true, reserved: true },
+      });
+
+      if (!product) {
+        throw new NotFoundException(`SKU ${sku} not found`);
+      }
+
+      const availableQuantity = product.stock - product.reserved;
+      if (availableQuantity < quantity) {
+        throw new Error(
+          `Insufficient stock for SKU ${sku}. Requested: ${quantity}, Available: ${availableQuantity}`,
+        );
+      }
+
+      await tx.product.update({
+        where: { sku },
+        data: {
+          reserved: { increment: quantity },
+        },
+      });
+
+      await tx.stockReservation.create({
+        data: {
+          orderId,
+          sku,
+          quantity,
+          status: 'RESERVED',
+        },
+      });
+
+      this.logger.log(
+        `Reserved ${quantity} units of ${sku} for order ${orderId}`,
+      );
+    });
   }
 }
