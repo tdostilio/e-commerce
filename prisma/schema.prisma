@@ -1,33 +1,38 @@
+// Database configuration
 datasource db {
-  provider = "mongodb"
-  url      = env("DATABASE_URL")
+  provider = "mongodb"  // Using MongoDB as our database
+  url      = env("DATABASE_URL")  // Connection string from environment variables
 }
 
+// Prisma client configuration
 generator client {
-  provider = "prisma-client-js"
+  provider = "prisma-client-js"  // Generate TypeScript client
 }
 
+// Product model for storing product information
 model Product {
   id          String   @id @default(auto()) @map("_id") @db.ObjectId
   name        String
   description String
   price       Float
-  sku         String   @unique
-  stock       Int
-  reserved    Int      @default(0)
+  sku         String   @unique  // SKU must be unique
+  stock       Int      // Total stock
+  reserved    Int      @default(0)  // Stock reserved for orders
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 }
 
+// Outbox pattern for reliable message publishing
 model OutboxMessage {
-  id        String   @id @default(auto()) @map("_id") @db.ObjectId
-  eventType String
-  payload   Json
-  status    String   @default("pending") // pending, processed, failed
-  createdAt DateTime @default(now())
+  id          String    @id @default(auto()) @map("_id") @db.ObjectId
+  eventType   String
+  payload     Json
+  status      String    @default("pending")
+  createdAt   DateTime  @default(now())
   processedAt DateTime?
 }
 
+// Track stock reservations for orders
 model StockReservation {
   id        String   @id @default(auto()) @map("_id") @db.ObjectId
   orderId   String
@@ -37,6 +42,7 @@ model StockReservation {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  // Indexes for faster queries
   @@index([orderId])
   @@index([sku])
 }
