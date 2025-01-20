@@ -22,32 +22,33 @@ async function bootstrap() {
     // Set up Swagger API documentation
     setupSwagger(app);
 
-    // Get RabbitMQ configuration
-    const rmqConfig = rabbitmqConfig();
-    logger.debug(
-      `Connecting to RabbitMQ with config: ${JSON.stringify(rmqConfig)}`,
-    );
-
-    // Connect to RabbitMQ as a microservice
-    const microservice = app.connectMicroservice<RmqOptions>(rmqConfig);
-    await microservice.listen();
-
-    // Start both HTTP and microservice servers
-    await app.startAllMicroservices();
-    await app.listen(port);
-
-    // Log successful startup
+    // Start HTTP server first
+    await app.listen(port, '0.0.0.0');
     logger.log(`🚀 HTTP Server running on port ${port}`);
     logger.log(
       `📚 Swagger documentation available at http://localhost:${port}/api`,
     );
-    logger.log(`🐰 RabbitMQ consumer connected to ${process.env.RABBITMQ_URL}`);
-  } catch (error) {
-    // Handle startup errors
-    logger.error('Failed to start application:', error);
-    if (error.message.includes('ECONNREFUSED')) {
-      logger.error('❌ Failed to connect to RabbitMQ. Is it running?');
+
+    // Then connect to RabbitMQ
+    try {
+      const rmqConfig = rabbitmqConfig();
+      logger.debug(
+        `Connecting to RabbitMQ with config: ${JSON.stringify(rmqConfig)}`,
+      );
+
+      const microservice = app.connectMicroservice<RmqOptions>(rmqConfig);
+      await microservice.listen();
+      await app.startAllMicroservices();
+
+      logger.log(
+        `🐰 RabbitMQ consumer connected to ${process.env.RABBITMQ_URL}`,
+      );
+    } catch (rmqError) {
+      logger.error('Failed to connect to RabbitMQ:', rmqError);
+      logger.warn('Application continuing without RabbitMQ connection');
     }
+  } catch (error) {
+    logger.error('Failed to start application:', error);
     process.exit(1);
   }
 }
