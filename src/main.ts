@@ -29,23 +29,38 @@ async function bootstrap() {
       `📚 Swagger documentation available at http://localhost:${port}/api`,
     );
 
-    // Then connect to RabbitMQ
-    try {
-      const rmqConfig = rabbitmqConfig();
-      logger.debug(
-        `Connecting to RabbitMQ with config: ${JSON.stringify(rmqConfig)}`,
-      );
+    // Then connect to RabbitMQ with retry logic
+    let retryCount = 0;
+    const maxRetries = 5;
 
-      const microservice = app.connectMicroservice<RmqOptions>(rmqConfig);
-      await microservice.listen();
-      await app.startAllMicroservices();
+    while (retryCount < maxRetries) {
+      try {
+        const rmqConfig = rabbitmqConfig();
+        const microservice = app.connectMicroservice<RmqOptions>(rmqConfig);
+        await microservice.listen();
 
-      logger.log(
-        `🐰 RabbitMQ consumer connected to ${process.env.RABBITMQ_URL}`,
-      );
-    } catch (rmqError) {
-      logger.error('Failed to connect to RabbitMQ:', rmqError);
-      logger.warn('Application continuing without RabbitMQ connection');
+        logger.log(
+          `🐰 RabbitMQ consumer connected to ${process.env.RABBITMQ_URL}`,
+        );
+        break; // Success, exit retry loop
+      } catch (error) {
+        retryCount++;
+        logger.error(
+          `Failed to connect to RabbitMQ (attempt ${retryCount}/${maxRetries})`,
+        );
+
+        if (retryCount === maxRetries) {
+          logger.error(
+            'Max retries reached, application will continue without RabbitMQ',
+          );
+          break;
+        }
+
+        // Exponential backoff
+        const delay = Math.min(1000 * Math.pow(2, retryCount), 10000);
+        logger.log(`Retrying in ${delay}ms...`);
+        await new Promise((resolve) => setTimeout(resolve, delay));
+      }
     }
   } catch (error) {
     logger.error('Failed to start application:', error);

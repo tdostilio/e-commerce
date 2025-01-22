@@ -13,7 +13,13 @@ export const rabbitmqConfig = (): RmqOptions => {
         durable: true,
       },
       socketOptions: {
-        heartbeat: 60,
+        reconnectTimeInSeconds: 5,
+        heartbeatIntervalInSeconds: 60,
+        connectionOptions: {
+          timeout: 30000,
+          keepAlive: true,
+          noDelay: true,
+        },
       },
       prefetchCount: 1,
       noAck: false,
