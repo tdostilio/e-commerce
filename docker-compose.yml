@@ -1,3 +1,4 @@
+# product-service
 services:
   product-service:
     build:
@@ -5,15 +6,20 @@ services:
       target: development
     volumes:
       - .:/usr/src/app
-      - /usr/src/app/node_modules
+      - product_service_modules:/usr/src/app/node_modules
     ports:
       - '3000:3000'
-      - '9229:9229' # Debug port
-    command: npm run start:debug
+      - '9229:9229'
+    command: yarn start:debug
     environment:
       - NODE_ENV=development
+      - DATABASE_URL=${DATABASE_URL}
+      - PORT=3000
     networks:
       - message_broker_network
+
+volumes:
+  product_service_modules:
 
 networks:
   message_broker_network:
