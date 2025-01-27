@@ -11,7 +11,7 @@ import {
   Logger,
 } from '@nestjs/common';
 import { Ctx, RmqContext } from '@nestjs/microservices';
-import { ApiTags, ApiOperation, ApiResponse } from '@nestjs/swagger';
+import { ApiTags, ApiOperation, ApiResponse, ApiBody } from '@nestjs/swagger';
 import { ProductsService } from './products.service';
 import { CreateProductDto } from './dto/create-product.dto';
 import {
@@ -81,12 +81,20 @@ export class ProductsController {
     description: 'The product has been updated successfully.',
   })
   @ApiResponse({ status: 404, description: 'Product not found.' })
+  @ApiBody({ type: CreateProductDto })
   async update(
     @Param('id') id: string,
     @Body() updateData: Partial<CreateProductDto>,
   ) {
     try {
-      return await this.productsService.update(id, updateData);
+      // create some whitelist of fields that can be updated
+      const allowedFields = ['name', 'description', 'price', 'stock'];
+      const updatedData = Object.fromEntries(
+        Object.entries(updateData).filter(([key]) =>
+          allowedFields.includes(key),
+        ),
+      );
+      return await this.productsService.update(id, updatedData);
     } catch (error) {
       if (error instanceof ProductNotFoundError) {
         throw new NotFoundException(`Product with ID ${id} not found`);
