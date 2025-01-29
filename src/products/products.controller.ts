@@ -134,21 +134,14 @@ export class ProductsController {
     this.logger.debug(`Payload: ${JSON.stringify(data)}`);
 
     try {
-      const result = await this.productsService.checkAvailability(
-        data.sku,
-        data.quantity,
-      );
+      const result = await this.productsService.getAvailableStock(data.sku);
 
       // Acknowledge the message
       channel.ack(message);
 
       this.logger.debug(`Sending RPC response: ${JSON.stringify(result)}`);
       // Return the result - NestJS will handle sending it back through RabbitMQ
-      return {
-        skuExists: true,
-        hasAvailableStock: result.hasAvailableStock,
-        availableQuantity: result.availableQuantity,
-      };
+      return result;
     } catch (error) {
       this.logger.error('Failed to process RPC call:', error);
       channel.nack(message, false, true);
