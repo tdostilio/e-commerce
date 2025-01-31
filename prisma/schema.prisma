@@ -16,17 +16,10 @@ model Product {
   description String
   price       Float
   sku         String   @unique  // SKU must be unique
-  status      String   @default("active") // active, discontinued, draft
-  category    String?
-  tags        String[]
-  imageUrls   String[]
   stock       Int      // Total stock
   reserved    Int      @default(0)  // Stock reserved for orders
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
-
-  @@index([category])
-  @@index([status])
 }
 
 // Outbox pattern for reliable message publishing
@@ -54,4 +47,10 @@ model StockReservation {
   @@index([sku])
 }
 
-// Remove or merge Inventory model with Product since they share similar concerns 
+model Inventory {
+  id               String   @id @default(auto()) @map("_id") @db.ObjectId
+  sku              String   @unique
+  available        Int      @default(0)
+  reserved         Int      @default(0)
+  // ... other fields
+} 

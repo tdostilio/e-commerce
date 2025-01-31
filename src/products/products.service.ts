@@ -82,30 +82,30 @@ export class ProductsService {
     }
   }
 
-  // async checkAvailability(
-  //   sku: string,
-  //   quantity: number,
-  // ): Promise<StockCheckResponse> {
-  //   const product = await this.prisma.product.findUnique({
-  //     where: { sku },
-  //     select: { stock: true, reserved: true },
-  //   });
+  async checkAvailability(
+    sku: string,
+    quantity: number,
+  ): Promise<StockCheckResponse> {
+    const product = await this.prisma.product.findUnique({
+      where: { sku },
+      select: { stock: true, reserved: true },
+    });
 
-  //   if (!product) {
-  //     return {
-  //       skuExists: false,
-  //       hasAvailableStock: false,
-  //       availableQuantity: 0,
-  //     };
-  //   }
+    if (!product) {
+      return {
+        skuExists: false,
+        hasAvailableStock: false,
+        availableQuantity: 0,
+      };
+    }
 
-  //   const availableQuantity = product.stock - product.reserved;
-  //   return {
-  //     skuExists: true,
-  //     hasAvailableStock: availableQuantity >= quantity,
-  //     availableQuantity,
-  //   };
-  // }
+    const availableQuantity = product.stock - product.reserved;
+    return {
+      skuExists: true,
+      hasAvailableStock: availableQuantity >= quantity,
+      availableQuantity,
+    };
+  }
 
   async reserveStock(
     orderId: string,
@@ -115,19 +115,26 @@ export class ProductsService {
     return this.prisma.$transaction(async (tx) => {
       const product = await tx.product.findUnique({
         where: { sku },
-        select: { stock: true },
+        select: { stock: true, reserved: true },
       });
 
       if (!product) {
         throw new NotFoundException(`SKU ${sku} not found`);
       }
 
-      const availableQuantity = await this.getAvailableStock(sku);
+      const availableQuantity = product.stock - product.reserved;
       if (availableQuantity < quantity) {
         throw new Error(
           `Insufficient stock for SKU ${sku}. Requested: ${quantity}, Available: ${availableQuantity}`,
         );
       }
+
+      await tx.product.update({
+        where: { sku },
+        data: {
+          reserved: { increment: quantity },
+        },
+      });
 
       await tx.stockReservation.create({
         data: {
@@ -142,23 +149,5 @@ export class ProductsService {
         `Reserved ${quantity} units of ${sku} for order ${orderId}`,
       );
     });
-  }
-
-  async getAvailableStock(sku: string): Promise<number> {
-    const product = await this.prisma.product.findUnique({
-      where: { sku },
-    });
-
-    const reservedQuantity = await this.prisma.stockReservation.aggregate({
-      where: {
-        sku,
-        status: 'RESERVED', // Only count active reservations
-      },
-      _sum: {
-        quantity: true,
-      },
-    });
-
-    return product.stock - (reservedQuantity._sum.quantity || 0);
   }
 }
