@@ -25,14 +25,14 @@ export class ProductsService {
     return this.prisma.product.findMany();
   }
 
-  // Get a single product by ID
-  async findOne(id: string) {
+  // Get a single product by SKU
+  async findOne(sku: string) {
     const product = await this.prisma.product.findUnique({
-      where: { id },
+      where: { sku },
     });
 
     if (!product) {
-      throw new ProductNotFoundError(id);
+      throw new ProductNotFoundError(sku);
     }
 
     return product;
@@ -54,29 +54,29 @@ export class ProductsService {
 
   // Update an existing product
   // Partial<CreateProductDto> means all fields are optional
-  async update(id: string, data: Partial<CreateProductDto>) {
+  async update(sku: string, data: Partial<CreateProductDto>) {
     try {
       return await this.prisma.product.update({
-        where: { id },
+        where: { sku },
         data,
       });
     } catch (error) {
       if (error.code === 'P2025') {
-        throw new ProductNotFoundError(id);
+        throw new ProductNotFoundError(sku);
       }
       throw error;
     }
   }
 
   // Delete a product
-  async remove(id: string) {
+  async remove(sku: string) {
     try {
       return await this.prisma.product.delete({
-        where: { id },
+        where: { sku },
       });
     } catch (error) {
       if (error.code === 'P2025') {
-        throw new ProductNotFoundError(id);
+        throw new ProductNotFoundError(sku);
       }
       throw error;
     }

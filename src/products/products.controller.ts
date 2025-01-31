@@ -36,18 +36,18 @@ export class ProductsController {
     return this.productsService.findAll();
   }
 
-  // @Get(':id') creates a GET /products/:id endpoint
-  // @Param('id') extracts the id from the URL
-  @Get(':id')
-  @ApiOperation({ summary: 'Get a product by id' })
+  // @Get(':sku') creates a GET /products/:sku endpoint
+  // @Param('sku') extracts the sku from the URL
+  @Get(':sku')
+  @ApiOperation({ summary: 'Get a product by SKU' })
   @ApiResponse({ status: 200, description: 'Return the product.' })
   @ApiResponse({ status: 404, description: 'Product not found.' })
-  async findOne(@Param('id') id: string) {
+  async findOne(@Param('sku') sku: string) {
     try {
-      return await this.productsService.findOne(id);
+      return await this.productsService.findOne(sku);
     } catch (error) {
       if (error instanceof ProductNotFoundError) {
-        throw new NotFoundException(`Product with ID ${id} not found`);
+        throw new NotFoundException(`Product with SKU ${sku} not found`);
       }
       throw error;
     }
@@ -73,8 +73,8 @@ export class ProductsController {
     }
   }
 
-  // @Put(':id') creates a PUT /products/:id endpoint
-  @Put(':id')
+  // @Put(':sku') creates a PUT /products/:sku endpoint
+  @Put(':sku')
   @ApiOperation({ summary: 'Update a product' })
   @ApiResponse({
     status: 200,
@@ -83,7 +83,7 @@ export class ProductsController {
   @ApiResponse({ status: 404, description: 'Product not found.' })
   @ApiBody({ type: CreateProductDto })
   async update(
-    @Param('id') id: string,
+    @Param('sku') sku: string,
     @Body() updateData: Partial<CreateProductDto>,
   ) {
     try {
@@ -94,29 +94,29 @@ export class ProductsController {
           allowedFields.includes(key),
         ),
       );
-      return await this.productsService.update(id, updatedData);
+      return await this.productsService.update(sku, updatedData);
     } catch (error) {
       if (error instanceof ProductNotFoundError) {
-        throw new NotFoundException(`Product with ID ${id} not found`);
+        throw new NotFoundException(`Product with SKU ${sku} not found`);
       }
       throw error;
     }
   }
 
-  // @Delete(':id') creates a DELETE /products/:id endpoint
-  @Delete(':id')
+  // @Delete(':sku') creates a DELETE /products/:sku endpoint
+  @Delete(':sku')
   @ApiOperation({ summary: 'Delete a product' })
   @ApiResponse({
     status: 200,
     description: 'The product has been deleted successfully.',
   })
   @ApiResponse({ status: 404, description: 'Product not found.' })
-  async remove(@Param('id') id: string) {
+  async remove(@Param('sku') sku: string) {
     try {
-      return await this.productsService.remove(id);
+      return await this.productsService.remove(sku);
     } catch (error) {
       if (error instanceof ProductNotFoundError) {
-        throw new NotFoundException(`Product with ID ${id} not found`);
+        throw new NotFoundException(`Product with SKU ${sku} not found`);
       }
       throw error;
     }
